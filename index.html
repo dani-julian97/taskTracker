@@ -30,16 +30,21 @@
       display:grid;grid-template-columns:28px 1fr 32px;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);margin-top:6px;
       /* Better touch defaults; allow vertical pan until we’re actively dragging */
       touch-action: manipulation;
+      /* no-select default (for the whole task item) */
+      -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
     }
+    .task *{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     .task.dragging{opacity:.6}
 
     .task-title{font-weight:600;font-size:1.05rem;line-height:1.45;word-break:break-word;cursor:text}
     .task-title.strike{text-decoration:line-through;opacity:.6}
 
+    /* re-enable selection while editing */
     .task-edit{
       width:100%; font:inherit; font-size:1.05rem; line-height:1.45; color:var(--text);
       background:var(--input-bg); border:1px solid var(--input-brd); border-radius:8px;
       padding:6px 8px; outline:2px solid var(--accent); outline-offset:0;
+      -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
     }
 
     input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent)}
@@ -54,7 +59,8 @@
     .add{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
     .add input[type="text"]{
       width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
-      background:rgba(0,0,0,.06);color:var(--text);font-size:1rem
+      background:rgba(0,0,0,.06);color:var(--text);font-size:1rem;
+      -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
     }
     .add input[type="text"]::placeholder{color:var(--muted)}
     .add button{
@@ -116,7 +122,7 @@
   </div>
 
   <script>
-    const storageKey = 'task-tracker:v9';
+    const storageKey = 'task-tracker:v10';
     const initialData = {
       today: [
         { id: crypto.randomUUID(), title: 'Buy groceries', done: false },
@@ -179,15 +185,16 @@
       // Tap to edit (mobile and desktop click)
       title.addEventListener('click', ()=>{
         const li = title.closest('li.task');
-        // If we were in touch-drag, skip editing
-        if (li && li.dataset.dragging === 'true') return;
+        if (li && li.dataset.dragging === 'true') return; // skip if we initiated a drag
         startInlineEdit(title, task, li);
       });
+
+      // Prevent accidental selection on long-press (extra safety beyond CSS)
+      title.addEventListener('selectstart', e => e.preventDefault());
       return title;
     }
 
     function startInlineEdit(titleDiv, task, li){
-      // Disable custom dragging while editing
       li.dataset.dragging = 'false';
       li.draggable = false;
 
@@ -213,19 +220,14 @@
             save(); render(); return;
           }
         }
-        if (newText !== task.title) {
-          task.title = newText; save();
-        }
+        if (newText !== task.title) { task.title = newText; save(); }
         const newTitleDiv = createTitleDiv(task);
-        wireInteractions(newTitleDiv, task, li);
         li.replaceChild(newTitleDiv, input);
-        // re-enable drag flags after edit
         setupDrag(li, task, li.dataset.bucket);
       };
 
       const cancel = () => {
         const newTitleDiv = createTitleDiv(task);
-        wireInteractions(newTitleDiv, task, li);
         li.replaceChild(newTitleDiv, input);
         setupDrag(li, task, li.dataset.bucket);
       };
@@ -237,19 +239,13 @@
       input.addEventListener('blur', commit);
     }
 
-    function wireInteractions(titleDiv, task, li){
-      // Nothing extra here now; kept for parity if needed later
-    }
-
     function taskItem(task, bucket){
       const li = document.createElement('li');
       li.className = 'task';
       li.dataset.id = task.id;
       li.dataset.bucket = bucket;
 
-      // Desktop native DnD only (mobile uses custom)
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
       if (!isTouch) li.draggable = true;
 
       const cb = document.createElement('input');
@@ -273,8 +269,8 @@
       </svg>`;
       del.addEventListener('click', () => removeTask(task.id, bucket));
 
-      // Desktop drag (native)
       if (!isTouch) {
+        // Desktop native DnD
         li.addEventListener('dragstart', (e) => {
           const active = document.activeElement;
           if (active && active.classList && active.classList.contains('task-edit')) {
@@ -285,7 +281,7 @@
         });
         li.addEventListener('dragend', () => li.classList.remove('dragging'));
       } else {
-        setupDrag(li, task, bucket); // Mobile custom long-press drag
+        setupDrag(li, task, bucket); // Mobile long-press custom DnD
       }
 
       li.appendChild(cb);
@@ -295,7 +291,6 @@
     }
 
     function setupDrag(li, task, bucket){
-      // Ensure flags are reset
       li.dataset.dragging = 'false';
 
       const longPressMs = 400;
@@ -311,17 +306,15 @@
       const getPoint = (e) => {
         if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         return { x: e.clientX, y: e.clientY };
-        };
+      };
 
       const onMove = (e) => {
         if (!dragging) return;
-        e.preventDefault(); // stop the page from scrolling while dragging
+        e.preventDefault(); // stop page scroll while dragging
         const { x, y } = getPoint(e);
         const gx = x - offsetX;
         const gy = y - offsetY;
         ghost.style.transform = `translate(${gx}px, ${gy}px)`;
-
-        // find droptarget under finger
         const el = document.elementFromPoint(x, y);
         const zone = el ? el.closest('.droptarget') : null;
         if (currentZone && currentZone !== zone) currentZone.classList.remove('drop-over');
@@ -341,14 +334,11 @@
         document.removeEventListener('touchcancel', onUp);
       };
 
-      const onUp = (e) => {
+      const onUp = () => {
         clearTimeout(pressTimer);
         if (!dragging) return cleanup();
-
-        // Drop
         const dropBucket = currentZone ? currentZone.dataset.bucket : null;
         if (dropBucket && dropBucket !== bucket) {
-          // move
           const fromArr = state[bucket];
           const idx = fromArr.findIndex(t => t.id === task.id);
           if (idx !== -1) {
@@ -371,16 +361,13 @@
         ghost.innerHTML = li.innerHTML;
         document.body.appendChild(ghost);
 
-        // offsets so the finger stays at the same relative point
         const r = li.getBoundingClientRect();
         offsetX = x - r.left;
         offsetY = y - r.top;
         ghost.style.transform = `translate(${r.left}px, ${r.top}px)`;
 
-        // highlight zones
         document.querySelectorAll('.droptarget').forEach(z => z.classList.add('drop-active'));
 
-        // capture moves
         document.addEventListener('mousemove', onMove, {passive:false});
         document.addEventListener('touchmove', onMove, {passive:false});
         document.addEventListener('mouseup', onUp);
@@ -389,7 +376,6 @@
       };
 
       const onDown = (e) => {
-        // Ignore starting drag from inputs/buttons to avoid accidental drags
         const target = e.target;
         if (target.closest('input,button,.btn-delete,.task-edit')) return;
 
@@ -400,7 +386,7 @@
         clearTimeout(pressTimer);
         pressTimer = setTimeout(()=> startDrag(startX, startY), longPressMs);
 
-        // If the user moves far before timer, cancel (they probably scroll)
+        // If user moves far before timer, cancel (scroll intent)
         const cancelIfMoved = (ev) => {
           const m = getPoint(ev);
           const dx = Math.abs(m.x - startX), dy = Math.abs(m.y - startY);
@@ -422,7 +408,6 @@
 
       const onCancelPress = () => clearTimeout(pressTimer);
 
-      // Pointer/touch listeners
       li.addEventListener('touchstart', onDown, {passive:true});
       li.addEventListener('mousedown', onDown);
       li.addEventListener('touchend', onCancelPress);

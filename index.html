@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <!-- Allow zoom; remove maximum-scale/user-scalable -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Task Tracker · Today / Week / Future</title>
   <style>
     :root{
@@ -24,8 +24,13 @@
     .card h2{margin:0 0 8px;font-size:1.05rem}
     .tasks{list-style:none;margin:0;padding:0;min-height:8px}
     .droptarget.drop-active{outline:2px dashed rgba(124,156,255,.5);outline-offset:4px}
+    .droptarget.drop-over{outline-color: var(--accent)}
 
-    .task{display:grid;grid-template-columns:28px 1fr 32px;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);margin-top:6px}
+    .task{
+      display:grid;grid-template-columns:28px 1fr 32px;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);margin-top:6px;
+      /* Better touch defaults; allow vertical pan until we’re actively dragging */
+      touch-action: manipulation;
+    }
     .task.dragging{opacity:.6}
 
     .task-title{font-weight:600;font-size:1.05rem;line-height:1.45;word-break:break-word;cursor:text}
@@ -59,6 +64,14 @@
 
     @media (min-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} .card.future{grid-column:span 2} }
     .task:focus-within{outline:1px solid rgba(124,156,255,.35);outline-offset:3px;border-radius:12px}
+
+    /* Mobile drag ghost */
+    .drag-ghost{
+      position:fixed; left:0; top:0; transform:translate(-9999px,-9999px);
+      pointer-events:none; z-index:9999; box-shadow: var(--shadow);
+      background:rgba(255,255,255,.06); border-radius:12px; padding:10px;
+      width: calc(100vw - 32px); max-width: 700px;
+    }
   </style>
 </head>
 <body>
@@ -70,7 +83,7 @@
 
     <main class="grid" aria-describedby="helper">
       <p id="helper" style="position:absolute;left:-9999px;top:auto;opacity:0">
-        Click a task to edit. Press Enter to save, Esc to cancel. Drag to move between lists.
+        Tap a task to edit. Long-press to start dragging on mobile. Drag to move between lists.
       </p>
 
       <section class="card">
@@ -103,7 +116,7 @@
   </div>
 
   <script>
-    const storageKey = 'task-tracker:v8';
+    const storageKey = 'task-tracker:v9';
     const initialData = {
       today: [
         { id: crypto.randomUUID(), title: 'Buy groceries', done: false },
@@ -155,7 +168,7 @@
       title.textContent = task.title;
       title.tabIndex = 0;
       title.setAttribute('role','textbox');
-      title.setAttribute('aria-label','Task title. Click to edit. Press Enter to start editing.');
+      title.setAttribute('aria-label','Task title. Tap to edit. Press Enter to start editing on desktop.');
       title.addEventListener('keydown', (e)=>{
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -163,11 +176,21 @@
           startInlineEdit(title, task, li);
         }
       });
+      // Tap to edit (mobile and desktop click)
+      title.addEventListener('click', ()=>{
+        const li = title.closest('li.task');
+        // If we were in touch-drag, skip editing
+        if (li && li.dataset.dragging === 'true') return;
+        startInlineEdit(title, task, li);
+      });
       return title;
     }
 
     function startInlineEdit(titleDiv, task, li){
+      // Disable custom dragging while editing
+      li.dataset.dragging = 'false';
       li.draggable = false;
+
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'task-edit';
@@ -183,32 +206,28 @@
 
       const commit = () => {
         const newText = input.value.trim();
-
         if (newText === '') {
           const bucket = li.closest('.tasks')?.dataset.bucket;
           if (bucket) {
             state[bucket] = state[bucket].filter(t => t.id !== task.id);
-            save();
-            render();
-            return;
+            save(); render(); return;
           }
         }
-
         if (newText !== task.title) {
-          task.title = newText;
-          save();
+          task.title = newText; save();
         }
         const newTitleDiv = createTitleDiv(task);
-        wireEditing(newTitleDiv, task, li);
+        wireInteractions(newTitleDiv, task, li);
         li.replaceChild(newTitleDiv, input);
-        li.draggable = true;
+        // re-enable drag flags after edit
+        setupDrag(li, task, li.dataset.bucket);
       };
 
       const cancel = () => {
         const newTitleDiv = createTitleDiv(task);
-        wireEditing(newTitleDiv, task, li);
+        wireInteractions(newTitleDiv, task, li);
         li.replaceChild(newTitleDiv, input);
-        li.draggable = true;
+        setupDrag(li, task, li.dataset.bucket);
       };
 
       input.addEventListener('keydown', (e)=>{
@@ -218,19 +237,20 @@
       input.addEventListener('blur', commit);
     }
 
-    function wireEditing(titleDiv, task, li){
-      titleDiv.addEventListener('click', ()=> startInlineEdit(titleDiv, task, li));
-      titleDiv.addEventListener('mousedown', ()=> { li.draggable = false; });
-      titleDiv.addEventListener('mouseup',   ()=> { li.draggable = true;  });
-      titleDiv.addEventListener('touchstart',()=> { li.draggable = false; }, {passive:true});
-      titleDiv.addEventListener('touchend',  ()=> { li.draggable = true;  });
+    function wireInteractions(titleDiv, task, li){
+      // Nothing extra here now; kept for parity if needed later
     }
 
     function taskItem(task, bucket){
       const li = document.createElement('li');
       li.className = 'task';
-      li.draggable = true;
       li.dataset.id = task.id;
+      li.dataset.bucket = bucket;
+
+      // Desktop native DnD only (mobile uses custom)
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+      if (!isTouch) li.draggable = true;
 
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -243,7 +263,6 @@
       });
 
       const title = createTitleDiv(task);
-      wireEditing(title, task, li);
 
       const del = document.createElement('button');
       del.className = 'btn-delete';
@@ -254,15 +273,20 @@
       </svg>`;
       del.addEventListener('click', () => removeTask(task.id, bucket));
 
-      li.addEventListener('dragstart', (e) => {
-        const active = document.activeElement;
-        if (active && active.classList && active.classList.contains('task-edit')) {
-          e.preventDefault(); return;
-        }
-        e.dataTransfer.setData('text/plain', JSON.stringify({ id: task.id, from: bucket }));
-        li.classList.add('dragging');
-      });
-      li.addEventListener('dragend', () => li.classList.remove('dragging'));
+      // Desktop drag (native)
+      if (!isTouch) {
+        li.addEventListener('dragstart', (e) => {
+          const active = document.activeElement;
+          if (active && active.classList && active.classList.contains('task-edit')) {
+            e.preventDefault(); return;
+          }
+          e.dataTransfer.setData('text/plain', JSON.stringify({ id: task.id, from: bucket }));
+          li.classList.add('dragging');
+        });
+        li.addEventListener('dragend', () => li.classList.remove('dragging'));
+      } else {
+        setupDrag(li, task, bucket); // Mobile custom long-press drag
+      }
 
       li.appendChild(cb);
       li.appendChild(title);
@@ -270,12 +294,150 @@
       return li;
     }
 
+    function setupDrag(li, task, bucket){
+      // Ensure flags are reset
+      li.dataset.dragging = 'false';
+
+      const longPressMs = 400;
+      let pressTimer = null;
+      let dragging = false;
+      let ghost = null;
+      let startX = 0, startY = 0;
+      let offsetX = 0, offsetY = 0;
+      let currentZone = null;
+
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+      const getPoint = (e) => {
+        if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+        };
+
+      const onMove = (e) => {
+        if (!dragging) return;
+        e.preventDefault(); // stop the page from scrolling while dragging
+        const { x, y } = getPoint(e);
+        const gx = x - offsetX;
+        const gy = y - offsetY;
+        ghost.style.transform = `translate(${gx}px, ${gy}px)`;
+
+        // find droptarget under finger
+        const el = document.elementFromPoint(x, y);
+        const zone = el ? el.closest('.droptarget') : null;
+        if (currentZone && currentZone !== zone) currentZone.classList.remove('drop-over');
+        if (zone) zone.classList.add('drop-over');
+        currentZone = zone;
+      };
+
+      const cleanup = () => {
+        dragging = false;
+        li.dataset.dragging = 'false';
+        if (ghost) ghost.remove();
+        document.querySelectorAll('.droptarget').forEach(z => z.classList.remove('drop-active','drop-over'));
+        document.removeEventListener('mousemove', onMove, {passive:false});
+        document.removeEventListener('touchmove', onMove, {passive:false});
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('touchend', onUp);
+        document.removeEventListener('touchcancel', onUp);
+      };
+
+      const onUp = (e) => {
+        clearTimeout(pressTimer);
+        if (!dragging) return cleanup();
+
+        // Drop
+        const dropBucket = currentZone ? currentZone.dataset.bucket : null;
+        if (dropBucket && dropBucket !== bucket) {
+          // move
+          const fromArr = state[bucket];
+          const idx = fromArr.findIndex(t => t.id === task.id);
+          if (idx !== -1) {
+            const [moved] = fromArr.splice(idx, 1);
+            state[dropBucket].push(moved);
+            save(); render();
+          }
+        }
+        cleanup();
+      };
+
+      const startDrag = (x, y) => {
+        dragging = true;
+        li.dataset.dragging = 'true';
+
+        // visual ghost
+        ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.style.width = li.getBoundingClientRect().width + 'px';
+        ghost.innerHTML = li.innerHTML;
+        document.body.appendChild(ghost);
+
+        // offsets so the finger stays at the same relative point
+        const r = li.getBoundingClientRect();
+        offsetX = x - r.left;
+        offsetY = y - r.top;
+        ghost.style.transform = `translate(${r.left}px, ${r.top}px)`;
+
+        // highlight zones
+        document.querySelectorAll('.droptarget').forEach(z => z.classList.add('drop-active'));
+
+        // capture moves
+        document.addEventListener('mousemove', onMove, {passive:false});
+        document.addEventListener('touchmove', onMove, {passive:false});
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchend', onUp);
+        document.addEventListener('touchcancel', onUp);
+      };
+
+      const onDown = (e) => {
+        // Ignore starting drag from inputs/buttons to avoid accidental drags
+        const target = e.target;
+        if (target.closest('input,button,.btn-delete,.task-edit')) return;
+
+        const p = getPoint(e);
+        startX = p.x; startY = p.y;
+
+        // Start long-press timer
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(()=> startDrag(startX, startY), longPressMs);
+
+        // If the user moves far before timer, cancel (they probably scroll)
+        const cancelIfMoved = (ev) => {
+          const m = getPoint(ev);
+          const dx = Math.abs(m.x - startX), dy = Math.abs(m.y - startY);
+          if (dx + dy > 8) { clearTimeout(pressTimer); }
+        };
+        const clearAll = () => {
+          document.removeEventListener('mousemove', cancelIfMoved);
+          document.removeEventListener('touchmove', cancelIfMoved);
+          document.removeEventListener('mouseup', clearAll);
+          document.removeEventListener('touchend', clearAll);
+          document.removeEventListener('touchcancel', clearAll);
+        };
+        document.addEventListener('mousemove', cancelIfMoved, {passive:true});
+        document.addEventListener('touchmove', cancelIfMoved, {passive:true});
+        document.addEventListener('mouseup', clearAll);
+        document.addEventListener('touchend', clearAll);
+        document.addEventListener('touchcancel', clearAll);
+      };
+
+      const onCancelPress = () => clearTimeout(pressTimer);
+
+      // Pointer/touch listeners
+      li.addEventListener('touchstart', onDown, {passive:true});
+      li.addEventListener('mousedown', onDown);
+      li.addEventListener('touchend', onCancelPress);
+      li.addEventListener('mouseup', onCancelPress);
+      li.addEventListener('touchcancel', onCancelPress);
+      li.addEventListener('mouseleave', onCancelPress);
+    }
+
     function bindDropZones(){
+      // Desktop native DnD receivers
       document.querySelectorAll('.droptarget').forEach(zone => {
         zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drop-active'); });
-        zone.addEventListener('dragleave', () => zone.classList.remove('drop-active'));
+        zone.addEventListener('dragleave', () => zone.classList.remove('drop-active','drop-over'));
         zone.addEventListener('drop', e => {
-          e.preventDefault(); zone.classList.remove('drop-active');
+          e.preventDefault(); zone.classList.remove('drop-active','drop-over');
           const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
           if (!data.id || !data.from) return;
           const from = data.from; const to = zone.dataset.bucket;

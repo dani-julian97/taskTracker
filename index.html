@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Task Tracker · Today / Week / Future</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121938;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #7c9cff;
+      --accent-2: #22d3ee;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    body {
+      margin: 0; padding: 12px; font: 16px/1.35 system-ui; background: var(--bg); color: var(--text);
+    }
+    .app { max-width: 720px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; }
+    header h1 { font-size: 1.2rem; margin: 0; }
+    #progressPill { font-size: 0.85rem; color: var(--muted); padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); }
+
+    .grid { display: grid; gap: 14px; }
+    .card { background: var(--card); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+    .card h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .tasks { list-style: none; margin: 0; padding: 0; min-height: 8px; }
+    .droptarget.drop-active { outline: 2px dashed rgba(124,156,255,.5); outline-offset: 4px; }
+
+    .task { display: grid; grid-template-columns: 28px 1fr 32px; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); margin-top: 6px; }
+    .task.dragging { opacity: 0.6; }
+    .task-title { font-weight: 600; }
+    .strike { text-decoration: line-through; opacity: 0.6; }
+
+    input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+
+    .btn-delete {
+      appearance: none;
+      background: var(--danger);
+      border: none;
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .btn-delete:hover { background: #dc2626; }
+    .btn-delete:active { background: #b91c1c; }
+    .btn-delete img {
+      width: 18px;
+      height: 18px;
+      filter: brightness(0) invert(1);
+    }
+
+    .add { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+    .add input[type="text"] { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.06); color: var(--text); }
+    .add button { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border: 0; color: #fff; font-weight: 700; padding: 12px 16px; border-radius: 12px; cursor: pointer; }
+
+    @media (min-width:640px){ .grid{ grid-template-columns: repeat(2,1fr);} .card.future{ grid-column: span 2; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Task Tracker</h1>
+      <span id="progressPill">0/0 done</span>
+    </header>
+
+    <main class="grid">
+      <section class="card">
+        <h2>Today</h2>
+        <ul class="tasks droptarget" id="list-today" data-bucket="today"></ul>
+        <div class="add">
+          <input type="text" id="add-today" placeholder="Add a task for today…" />
+          <button onclick="addTask('today')">Add</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>This Week</h2>
+        <ul class="tasks droptarget" id="list-week" data-bucket="week"></ul>
+        <div class="add">
+          <input type="text" id="add-week" placeholder="Add a task for this week…" />
+          <button onclick="addTask('week')">Add</button>
+        </div>
+      </section>
+
+      <section class="card future">
+        <h2>Future</h2>
+        <ul class="tasks droptarget" id="list-future" data-bucket="future"></ul>
+        <div class="add">
+          <input type="text" id="add-future" placeholder="Add a future task…" />
+          <button onclick="addTask('future')">Add</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const storageKey = 'task-tracker:v6';
+    const initialData = {
+      today: [
+        { id: crypto.randomUUID(), title: 'Buy groceries', done: false },
+        { id: crypto.randomUUID(), title: 'Finish client report', done: false },
+        { id: crypto.randomUUID(), title: 'Go for a 20-minute walk', done: false }
+      ],
+      week: [
+        { id: crypto.randomUUID(), title: 'Clean the garage', done: false },
+        { id: crypto.randomUUID(), title: 'Plan weekend trip', done: false },
+        { id: crypto.randomUUID(), title: 'Prepare presentation slides', done: false }
+      ],
+      future: [
+        { id: crypto.randomUUID(), title: 'Learn a new programming language', done: false },
+        { id: crypto.randomUUID(), title: 'Start a personal website', done: false },
+        { id: crypto.randomUUID(), title: 'Organize old photos', done: false }
+      ]
+    };
+
+    let state = JSON.parse(localStorage.getItem(storageKey)) || initialData;
+
+    function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); updateProgress(); }
+
+    function render(){
+      ['today','week','future'].forEach(bucket => {
+        const list = document.getElementById('list-' + bucket);
+        list.innerHTML = '';
+        state[bucket].forEach(task => list.appendChild(taskItem(task, bucket)));
+      });
+      bindDropZones();
+      updateProgress();
+    }
+
+    function taskItem(task, bucket){
+      const li = document.createElement('li');
+      li.className = 'task';
+      li.draggable = true; li.dataset.id = task.id;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!task.done;
+      cb.addEventListener('change', () => { task.done = cb.checked; save(); title.classList.toggle('strike', task.done); });
+
+      const title = document.createElement('div');
+      title.className = 'task-title' + (task.done ? ' strike' : '');
+      title.textContent = task.title;
+
+      const del = document.createElement('button');
+      del.className = 'btn-delete';
+      del.title = 'Remove task';
+      const icon = document.createElement('img');
+      icon.src = 'icons/trashbin.svg';
+      icon.alt = 'Delete';
+      del.appendChild(icon);
+      del.addEventListener('click', () => removeTask(task.id, bucket));
+
+      li.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ id: task.id, from: bucket }));
+        li.classList.add('dragging');
+      });
+      li.addEventListener('dragend', () => li.classList.remove('dragging'));
+
+      li.appendChild(cb);
+      li.appendChild(title);
+      li.appendChild(del);
+      return li;
+    }
+
+    function bindDropZones(){
+      document.querySelectorAll('.droptarget').forEach(zone => {
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drop-active'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drop-active'));
+        zone.addEventListener('drop', e => {
+          e.preventDefault(); zone.classList.remove('drop-active');
+          const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+          if (!data.id || !data.from) return;
+          const from = data.from; const to = zone.dataset.bucket;
+          const idx = state[from].findIndex(t => t.id === data.id);
+          if (idx === -1) return;
+          const [task] = state[from].splice(idx, 1);
+          state[to].push(task);
+          save(); render();
+        });
+      });
+    }
+
+    function addTask(bucket){
+      const input = document.getElementById('add-' + bucket);
+      const title = (input.value || '').trim();
+      if(!title) return;
+      state[bucket].push({ id: crypto.randomUUID(), title, done:false });
+      input.value = '';
+      save(); render();
+    }
+
+    function removeTask(id, bucket){
+      state[bucket] = state[bucket].filter(t => t.id !== id);
+      save(); render();
+    }
+
+    function updateProgress(){
+      const all = [...state.today, ...state.week, ...state.future];
+      const done = all.filter(t => t.done).length;
+      document.getElementById('progressPill').textContent = `${done}/${all.length} done`;
+    }
+
+    render();
+  </script>
+</body>
+</html>

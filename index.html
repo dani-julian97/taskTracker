@@ -21,7 +21,13 @@
       --input-bg:rgba(255,255,255,.05); --input-brd:rgba(255,255,255,.18);
     }
     *{box-sizing:border-box}
-    body{margin:0;padding:12px;font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text)}
+    body{
+      margin:0;
+      padding:12px;
+      padding-top: calc(16px + env(safe-area-inset-top)); /* keep below iOS time/status bar */
+      font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:var(--bg); color:var(--text)
+    }
     .app{max-width:720px;margin:0 auto}
     header{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px}
     header h1{font-size:1.2rem;margin:0}
@@ -30,6 +36,27 @@
     .grid{display:grid;gap:14px}
     .card{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
     .card h2{margin:0 0 8px;font-size:1.05rem}
+
+    /* collapsible header as a button */
+    .section-toggle{
+      width:100%; display:flex; align-items:center; justify-content:space-between;
+      background:transparent; color:var(--text); border:0; padding:4px 0; cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .section-toggle .left{display:flex; align-items:center; gap:8px}
+    .section-toggle .badge{
+      background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
+      padding:2px 8px; border-radius:999px; font-size:.85rem; color:var(--muted);
+    }
+    .section-toggle .chev{transition: transform .2s ease}
+    .card.collapsed .section-toggle .chev{transform:rotate(-90deg)}
+
+    .section-body{
+      overflow:hidden; transition:max-height .2s ease;
+    }
+    .card.collapsed .section-body{max-height:0}
+    .card.expanded .section-body{max-height:1200px} /* big enough to reveal content */
+
     .tasks{list-style:none;margin:0;padding:0;min-height:8px}
     .droptarget.drop-active{outline:2px dashed rgba(124,156,255,.5);outline-offset:4px}
     .droptarget.drop-over{outline-color: var(--accent)}
@@ -54,12 +81,16 @@
 
     input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent)}
     .btn-delete{
-      appearance:none;background:var(--danger);border:0;border-radius:8px;width:32px;height:32px;
-      display:flex;align-items:center;justify-content:center;cursor:pointer;transition:filter .15s ease, transform .05s ease
+      appearance:none; -webkit-appearance:none;
+      background:var(--danger); border:0; border-radius:8px; width:32px; height:32px;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      transition:filter .15s ease, transform .05s ease;
+      line-height:0; color:transparent; overflow:hidden; /* avoid stray white mark */
+      -webkit-tap-highlight-color: transparent;
     }
     .btn-delete:hover{filter:brightness(1.05)}
     .btn-delete:active{transform:scale(.98)}
-    .btn-delete svg{width:18px;height:18px;fill:#fff}
+    .btn-delete svg{width:18px;height:18px;fill:#fff; display:block}
 
     .add{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
     .add input[type="text"]{
@@ -96,37 +127,62 @@
         Tap a task to edit. Long-press to start dragging on mobile. Drag to move between lists. Auto-scroll kicks in near the screen edges.
       </p>
 
-      <section class="card">
-        <h2>Today</h2>
-        <ul class="tasks droptarget" id="list-today" data-bucket="today"></ul>
-        <div class="add">
-          <input type="text" id="add-today" placeholder="Add a task for today…" />
-          <button type="button" onclick="addTask('today')">Add</button>
+      <section class="card" id="card-today">
+        <button class="section-toggle" data-bucket="today" aria-expanded="false">
+          <span class="left">
+            <span class="chev">▾</span>
+            <strong>Today</strong>
+          </span>
+          <span class="badge" id="count-today">0/0</span>
+        </button>
+        <div class="section-body">
+          <ul class="tasks droptarget" id="list-today" data-bucket="today"></ul>
+          <div class="add">
+            <input type="text" id="add-today" placeholder="Add a task for today…" />
+            <button type="button" onclick="addTask('today')">Add</button>
+          </div>
         </div>
       </section>
 
-      <section class="card">
-        <h2>This Week</h2>
-        <ul class="tasks droptarget" id="list-week" data-bucket="week"></ul>
-        <div class="add">
-          <input type="text" id="add-week" placeholder="Add a task for this week…" />
-          <button type="button" onclick="addTask('week')">Add</button>
+      <section class="card" id="card-week">
+        <button class="section-toggle" data-bucket="week" aria-expanded="false">
+          <span class="left">
+            <span class="chev">▾</span>
+            <strong>This Week</strong>
+          </span>
+          <span class="badge" id="count-week">0/0</span>
+        </button>
+        <div class="section-body">
+          <ul class="tasks droptarget" id="list-week" data-bucket="week"></ul>
+          <div class="add">
+            <input type="text" id="add-week" placeholder="Add a task for this week…" />
+            <button type="button" onclick="addTask('week')">Add</button>
+          </div>
         </div>
       </section>
 
-      <section class="card future">
-        <h2>Future</h2>
-        <ul class="tasks droptarget" id="list-future" data-bucket="future"></ul>
-        <div class="add">
-          <input type="text" id="add-future" placeholder="Add a future task…" />
-          <button type="button" onclick="addTask('future')">Add</button>
+      <section class="card future" id="card-future">
+        <button class="section-toggle" data-bucket="future" aria-expanded="false">
+          <span class="left">
+            <span class="chev">▾</span>
+            <strong>Future</strong>
+          </span>
+          <span class="badge" id="count-future">0/0</span>
+        </button>
+        <div class="section-body">
+          <ul class="tasks droptarget" id="list-future" data-bucket="future"></ul>
+          <div class="add">
+            <input type="text" id="add-future" placeholder="Add a future task…" />
+            <button type="button" onclick="addTask('future')">Add</button>
+          </div>
         </div>
       </section>
     </main>
   </div>
 
   <script>
-    const storageKey = 'task-tracker:v11';
+    const storageKey = 'task-tracker:v12';
+    const collapseKey = 'task-tracker:collapsed';
     const initialData = {
       today: [
         { id: crypto.randomUUID(), title: 'Buy groceries', done: false },
@@ -146,10 +202,14 @@
     };
 
     let state = JSON.parse(localStorage.getItem(storageKey)) || initialData;
+    let collapsed = JSON.parse(localStorage.getItem(collapseKey)) || { today:true, week:true, future:true };
 
     function save(){
       localStorage.setItem(storageKey, JSON.stringify(state));
       updateProgress();
+    }
+    function saveCollapsed(){
+      localStorage.setItem(collapseKey, JSON.stringify(collapsed));
     }
 
     function render(){
@@ -157,18 +217,44 @@
         const list = document.getElementById('list-' + bucket);
         list.innerHTML = '';
         state[bucket].forEach(task => list.appendChild(taskItem(task, bucket)));
+        updateSectionCount(bucket);
+        setSectionCollapsed(bucket, !!collapsed[bucket]);
       });
       bindDropZones();
       updateProgress();
       bindAddInputsEnter();
+      bindToggles();
+    }
+
+    function bindToggles(){
+      document.querySelectorAll('.section-toggle').forEach(btn=>{
+        btn.onclick = ()=>{
+          const bucket = btn.dataset.bucket;
+          collapsed[bucket] = !collapsed[bucket];
+          saveCollapsed();
+          setSectionCollapsed(bucket, collapsed[bucket]);
+        };
+      });
+    }
+
+    function setSectionCollapsed(bucket, isCollapsed){
+      const card = document.getElementById('card-' + bucket);
+      const btn = card.querySelector('.section-toggle');
+      card.classList.toggle('collapsed', isCollapsed);
+      card.classList.toggle('expanded', !isCollapsed);
+      btn.setAttribute('aria-expanded', (!isCollapsed).toString());
+    }
+
+    function updateSectionCount(bucket){
+      const total = state[bucket].length;
+      const done = state[bucket].filter(t=>t.done).length;
+      document.getElementById('count-'+bucket).textContent = `${done}/${total}`;
     }
 
     function bindAddInputsEnter(){
       ['today','week','future'].forEach(bucket=>{
         const inp = document.getElementById('add-' + bucket);
-        inp.onkeydown = (e) => {
-          if (e.key === 'Enter') { addTask(bucket); }
-        };
+        inp.onkeydown = (e) => { if (e.key === 'Enter') { addTask(bucket); } };
       });
     }
 
@@ -225,6 +311,7 @@
         const newTitleDiv = createTitleDiv(task);
         li.replaceChild(newTitleDiv, input);
         setupDrag(li, task, li.dataset.bucket);
+        updateSectionCount(bucket);
       };
 
       const cancel = () => {
@@ -257,6 +344,7 @@
         task.done = cb.checked;
         save();
         title.classList.toggle('strike', task.done);
+        updateSectionCount(bucket);
       });
 
       const title = createTitleDiv(task);
@@ -266,12 +354,11 @@
       del.title = 'Remove task';
       del.setAttribute('aria-label', 'Remove task');
       del.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1zm1 4H7v12h10V7h-3H10zm1 2h2v8h-2V9zm-4 0h2v8H7V9zm8 0h2v8H-2V9z"/>
-      </svg>`.replace("-2","2"); // tiny fix to avoid accidental negative in heredoc
-      del.addEventListener('click', () => removeTask(task.id, bucket));
+        <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1zm1 4H7v12h10V7h-3H10zm1 2h2v8h-2V9zm-4 0h2v8H7V9zm8 0h2v8h-2V9z"/>
+      </svg>`;
+      del.addEventListener('click', () => { removeTask(task.id, bucket); updateSectionCount(bucket); });
 
-      const isDesktop = !isTouch;
-      if (isDesktop) {
+      if (!isTouch) {
         // Desktop native DnD
         li.addEventListener('dragstart', (e) => {
           const active = document.activeElement;
@@ -303,9 +390,8 @@
       let offsetX = 0, offsetY = 0;
       let currentZone = null;
 
-      // Auto-scroll state
-      const EDGE = 80;         // px from viewport edge where auto-scroll starts
-      const MAX_SPEED = 20;    // px per frame (~60fps)
+      const EDGE = 80;
+      const MAX_SPEED = 20;
       let lastPointer = {x:0,y:0};
       let rafId = null;
 
@@ -490,6 +576,7 @@
       input.value = '';
       save(); render();
       input.focus();
+      updateSectionCount(bucket);
     }
 
     function removeTask(id, bucket){
@@ -501,8 +588,11 @@
       const all = [...state.today, ...state.week, ...state.future];
       const done = all.filter(t => t.done).length;
       document.getElementById('progressPill').textContent = `${done}/${all.length} done`;
+      // update section badges too (in case called directly)
+      ['today','week','future'].forEach(updateSectionCount);
     }
 
+    // Initial render and ensure collapsed UI reflects saved state
     render();
   </script>
 </body>

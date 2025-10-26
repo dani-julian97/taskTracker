@@ -14,7 +14,6 @@
   <link rel="manifest" href="manifest.webmanifest">
 
   <style>
-    /* Themes */
     :root{
       --bg:#0b1020; --card:#121938; --text:#e5e7eb; --muted:#9ca3af;
       --accent:#7c9cff; --accent-2:#22d3ee; --danger:#ef4444;
@@ -22,13 +21,7 @@
       --input-bg:rgba(255,255,255,.05); --input-brd:rgba(255,255,255,.18);
       --outline:rgba(124,156,255,.35);
     }
-    :root[data-theme="midnight"]{
-      --bg:#0b1020; --card:#121938; --text:#e5e7eb; --muted:#9ca3af;
-      --accent:#7c9cff; --accent-2:#22d3ee; --danger:#ef4444;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --input-bg:rgba(255,255,255,.05); --input-brd:rgba(255,255,255,.18);
-      --outline:rgba(124,156,255,.35);
-    }
+    :root[data-theme="midnight"]{}
     :root[data-theme="light"]{
       --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#475569;
       --accent:#2563eb; --accent-2:#06b6d4; --danger:#dc2626;
@@ -71,30 +64,30 @@
     :root[data-theme="light"] #themeBtn, :root[data-theme="light"] #addGroupBtn{border-color:#e5e7eb}
     :root[data-theme="dark"] #themeBtn, :root[data-theme="dark"] #addGroupBtn{border-color:#1f2937}
 
-    .grid{display:grid;gap:14px}
+    #sections{ display:grid; gap:24px; padding-bottom:24px; }
     .card{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
-    .card h2{margin:0 0 8px;font-size:1.05rem}
 
-    .section-toggle{
-      width:100%; display:flex; align-items:center; justify-content:space-between;
-      background:transparent; color:var(--text); border:0; padding:6px 8px; cursor:pointer;
-      -webkit-tap-highlight-color: transparent;
-      border-radius:12px;
+    .section-header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:6px 8px; border-radius:12px;
     }
-    .section-toggle strong{font-size:1.25rem}
-    .section-toggle .left{display:flex; align-items:center; gap:8px}
-    .section-toggle .right{display:flex; align-items:center; gap:8px}
-    .section-toggle .badge{
+    .section-header .left{display:flex; align-items:center; gap:8px; min-width:0}
+    .title-tap{
+      display:inline-flex; align-items:center; gap:6px;
+      cursor:pointer; user-select:none; -webkit-user-select:none;
+      outline:none;
+    }
+    .title-tap strong{font-size:1.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+
+    .section-header .badge{
       background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
       padding:2px 8px; border-radius:999px; font-size:.95rem; color:var(--muted);
     }
-    :root[data-theme="light"] .section-toggle .badge{background:#f8fafc;border-color:#e5e7eb;color:#475569}
-    :root[data-theme="dark"] .section-toggle .badge{background:#0f141a;border-color:#1f2937;color:#8b949e}
-    .section-toggle .chev{transition: transform .2s ease}
-    .card.collapsed .section-toggle .chev{transform:rotate(-90deg)}
+    :root[data-theme="light"] .section-header .badge{background:#f8fafc;border-color:#e5e7eb;color:#475569}
+    :root[data-theme="dark"]  .section-header .badge{background:#0f141a;border-color:#1f2937;color:#8b949e}
 
-    .section-toggle.drop-active{outline:2px dashed rgba(124,156,255,.5); outline-offset:4px}
-    .section-toggle.drop-over{outline-color: var(--accent)}
+    .section-header.droptarget.drop-active{outline:2px dashed rgba(124,156,255,.5); outline-offset:4px}
+    .section-header.droptarget.drop-over{outline-color: var(--accent)}
 
     .section-body{ overflow:hidden; transition:max-height .2s ease; }
     .card.collapsed .section-body{max-height:0}
@@ -125,29 +118,32 @@
     }
 
     input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent)}
-    .btn-delete{
-      appearance:none; -webkit-appearance:none;
-      background:var(--danger); border:0; border-radius:8px; width:32px; height:32px;
-      display:flex; align-items:center; justify-content:center; cursor:pointer;
-      transition:filter .15s ease, transform .05s ease;
-      line-height:0; color:transparent; overflow:hidden;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn-delete:hover{filter:brightness(1.05)}
-    .btn-delete:active{transform:scale(.98)}
-    .btn-delete svg{width:18px;height:18px;fill:#fff; display:block}
 
-    /* Group delete button: same icon, transparent style (not red) */
-    .btn-group-delete{
+    /* FIX: remove any visible rectangle before icons (focus/tap highlights, pseudo content) */
+    .btn-delete, .btn-group-delete{
       appearance:none; -webkit-appearance:none;
-      background:transparent; border:1px solid rgba(255,255,255,.12);
-      width:32px; height:32px; border-radius:8px;
-      display:flex; align-items:center; justify-content:center; cursor:pointer;
-      line-height:0; -webkit-tap-highlight-color: transparent;
+      position:relative;
+      border:0; /* group delete will add its own border below */
+      border-radius:8px; width:32px; height:32px;
+      display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+      line-height:0; overflow:hidden;
+      -webkit-tap-highlight-color: transparent;
+      outline:none;
+      background:transparent;
     }
-    .btn-group-delete svg{width:18px;height:18px;fill:var(--muted); display:block}
+    .btn-delete{ background:var(--danger); }
+    .btn-group-delete{ border:1px solid rgba(255,255,255,.12); }
     :root[data-theme="light"] .btn-group-delete{border-color:#e5e7eb}
     :root[data-theme="dark"] .btn-group-delete{border-color:#1f2937}
+
+    .btn-delete:focus, .btn-group-delete:focus{ outline:none; }
+    .btn-delete::before, .btn-group-delete::before{ content:none !important; }
+    .btn-delete svg, .btn-group-delete svg{ width:18px; height:18px; display:block; background:transparent; }
+    .btn-delete svg{ fill:#fff; }
+    .btn-group-delete svg{ fill:var(--muted); }
+
+    .btn-delete:hover{filter:brightness(1.05)}
+    .btn-delete:active{transform:scale(.98)}
 
     .add{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
     .add input[type="text"]{
@@ -163,7 +159,7 @@
       border:0;color:#fff;font-weight:700;padding:12px 16px;border-radius:12px;cursor:pointer
     }
 
-    @media (min-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} .card.wide{grid-column:span 2} }
+    @media (min-width:640px){ #sections{grid-template-columns:repeat(2,1fr)} .card.wide{grid-column:span 2} }
     .task:focus-within{outline:1px solid var(--outline);outline-offset:3px;border-radius:12px}
 
     .drag-ghost{
@@ -188,7 +184,7 @@
       </div>
     </header>
 
-    <main class="grid" aria-describedby="helper">
+    <main aria-describedby="helper">
       <p id="helper" style="position:absolute;left:-9999px;top:auto;opacity:0">
         Tap a task to edit. Long-press to start dragging on mobile. Drag to move between lists. Auto-scroll kicks in near the screen edges.
       </p>
@@ -198,7 +194,7 @@
   </div>
 
   <script>
-    const storageKey  = 'task-tracker:v13';
+    const storageKey  = 'task-tracker:v15';
     const collapseKey = 'task-tracker:collapsed';
     const themeKey    = 'task-tracker:theme';
     const groupsKey   = 'task-tracker:groups';
@@ -282,9 +278,7 @@
       const grp = groups.find(g=>g.id===id);
       if (!grp) return;
       if (!confirm(`Are you sure you want to remove the group "${grp.title}"? This will also delete its tasks.`)) return;
-      // remove from groups array
       groups = groups.filter(g=>g.id!==id);
-      // remove data and collapsed state
       delete state[id];
       delete collapsed[id];
       persistGroups(); save(); saveCollapsed();
@@ -294,20 +288,19 @@
     function sectionTemplate(id, title){
       return `
       <section class="card" id="card-${id}">
-        <button class="section-toggle droptarget" data-bucket="${id}" aria-expanded="false">
-          <span class="left">
-            <span class="chev">▾</span>
-            <strong>${title}</strong>
-          </span>
-          <span class="right">
-            <span class="badge" id="count-${id}">0/0</span>
+        <div class="section-header droptarget" data-bucket="${id}">
+          <div class="left">
+            <div class="title-tap" tabindex="0" role="button" aria-expanded="false" data-toggle="${id}">
+              <strong>${title}</strong>
+            </div>
             <button class="btn-group-delete" type="button" title="Remove group" aria-label="Remove group" data-remove="${id}">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1zm1 4H7v12h10V7h-3H10zm1 2h2v8h-2V9zm-4 0h2v8H7V9zm8 0h2v8h-2V9z"/>
               </svg>
             </button>
-          </span>
-        </button>
+          </div>
+          <span class="badge" id="count-${id}">0/0</span>
+        </div>
         <div class="section-body">
           <ul class="tasks droptarget" id="list-${id}" data-bucket="${id}"></ul>
           <div class="add">
@@ -329,16 +322,21 @@
         setSectionCollapsed(g.id, !!collapsed[g.id]);
       });
 
-      // Wire header actions
       container.querySelectorAll('[data-add]').forEach(btn=>{
         btn.onclick = ()=> addTask(btn.getAttribute('data-add'));
       });
       container.querySelectorAll('.add input[type="text"]').forEach(inp=>{
         inp.onkeydown = (e)=>{ if(e.key==='Enter'){ addTask(inp.id.replace('add-','')); } };
       });
+
+      container.querySelectorAll('[data-toggle]').forEach(el=>{
+        el.onclick = ()=> toggleCollapse(el.getAttribute('data-toggle'));
+        el.onkeydown = (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); toggleCollapse(el.getAttribute('data-toggle')); } };
+      });
+
       container.querySelectorAll('[data-remove]').forEach(btn=>{
         btn.onclick = (e)=>{
-          e.stopPropagation(); // avoid toggling collapse
+          e.stopPropagation();
           const id = btn.getAttribute('data-remove');
           removeGroup(id);
         };
@@ -346,29 +344,23 @@
 
       bindDropZones();
       updateProgress();
-      bindToggles();
       setTheme(theme);
       document.getElementById('themeBtn').onclick = cycleTheme;
       document.getElementById('addGroupBtn').onclick = addGroup;
     }
 
-    function bindToggles(){
-      document.querySelectorAll('.section-toggle').forEach(btn=>{
-        btn.onclick = ()=>{
-          const bucket = btn.dataset.bucket;
-          collapsed[bucket] = !collapsed[bucket];
-          saveCollapsed();
-          setSectionCollapsed(bucket, collapsed[bucket]);
-        };
-      });
+    function toggleCollapse(bucket){
+      collapsed[bucket] = !collapsed[bucket];
+      saveCollapsed();
+      setSectionCollapsed(bucket, collapsed[bucket]);
     }
 
     function setSectionCollapsed(bucket, isCollapsed){
       const card = document.getElementById('card-' + bucket);
-      const btn = card.querySelector('.section-toggle');
+      const titleTap = card.querySelector('[data-toggle]');
       card.classList.toggle('collapsed', isCollapsed);
       card.classList.toggle('expanded', !isCollapsed);
-      btn.setAttribute('aria-expanded', (!isCollapsed).toString());
+      if (titleTap) titleTap.setAttribute('aria-expanded', (!isCollapsed).toString());
     }
 
     function updateSectionCount(bucket){
@@ -580,7 +572,7 @@
           if (idx !== -1) {
             const [moved] = fromArr.splice(idx, 1);
             const ul = document.getElementById('list-' + dropBucket);
-            const insertAt = (currentZone.tagName === 'UL') ? computeDropIndex(ul, lastPointer.y) : ul.children.length;
+            const insertAt = (currentZone && currentZone.tagName === 'UL') ? computeDropIndex(ul, lastPointer.y) : ul.children.length;
             state[dropBucket].splice(insertAt, 0, moved);
             save(); render();
           }

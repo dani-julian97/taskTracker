@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Task Tracker · Today / Week / Future</title>
+  <title>Task Tracker · Custom Groups</title>
 
   <!-- iOS Home Screen / PWA basics -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,48 +14,91 @@
   <link rel="manifest" href="manifest.webmanifest">
 
   <style>
+    /* Themes */
     :root{
       --bg:#0b1020; --card:#121938; --text:#e5e7eb; --muted:#9ca3af;
       --accent:#7c9cff; --accent-2:#22d3ee; --danger:#ef4444;
       --shadow:0 10px 30px rgba(0,0,0,.35); --radius:18px;
       --input-bg:rgba(255,255,255,.05); --input-brd:rgba(255,255,255,.18);
+      --outline:rgba(124,156,255,.35);
     }
+    :root[data-theme="midnight"]{
+      --bg:#0b1020; --card:#121938; --text:#e5e7eb; --muted:#9ca3af;
+      --accent:#7c9cff; --accent-2:#22d3ee; --danger:#ef4444;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --input-bg:rgba(255,255,255,.05); --input-brd:rgba(255,255,255,.18);
+      --outline:rgba(124,156,255,.35);
+    }
+    :root[data-theme="light"]{
+      --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#475569;
+      --accent:#2563eb; --accent-2:#06b6d4; --danger:#dc2626;
+      --shadow:0 8px 24px rgba(15,23,42,.08);
+      --input-bg:#ffffff; --input-brd:#e5e7eb;
+      --outline:rgba(37,99,235,.35);
+    }
+    :root[data-theme="dark"]{
+      --bg:#05060a; --card:#0d1117; --text:#e6edf3; --muted:#8b949e;
+      --accent:#2f81f7; --accent-2:#00d0ff; --danger:#f43f5e;
+      --shadow:0 10px 28px rgba(0,0,0,.45);
+      --input-bg:#0f141a; --input-brd:#1f2937;
+      --outline:rgba(47,129,247,.35);
+    }
+
     *{box-sizing:border-box}
     body{
       margin:0;
       padding:12px;
-      padding-top: calc(16px + env(safe-area-inset-top)); /* keep below iOS time/status bar */
+      padding-top: calc(16px + env(safe-area-inset-top));
       font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial;
       background:var(--bg); color:var(--text)
     }
     .app{max-width:720px;margin:0 auto}
     header{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px}
     header h1{font-size:1.2rem;margin:0}
+
+    #topbar{display:flex; gap:8px; align-items:center}
     #progressPill{font-size:.9rem;color:var(--muted);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12)}
+    :root[data-theme="light"] #progressPill{border-color:#e5e7eb}
+    :root[data-theme="dark"] #progressPill{border-color:#1f2937}
+
+    #themeBtn, #addGroupBtn{
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid rgba(255,255,255,.12);
+      padding:6px 10px; border-radius:999px; cursor:pointer; background:transparent; color:var(--text);
+      font-size:.85rem; -webkit-tap-highlight-color: transparent;
+    }
+    #themeBtn:active, #addGroupBtn:active{transform:translateY(1px)}
+    :root[data-theme="light"] #themeBtn, :root[data-theme="light"] #addGroupBtn{border-color:#e5e7eb}
+    :root[data-theme="dark"] #themeBtn, :root[data-theme="dark"] #addGroupBtn{border-color:#1f2937}
 
     .grid{display:grid;gap:14px}
     .card{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
     .card h2{margin:0 0 8px;font-size:1.05rem}
 
-    /* collapsible header as a button */
     .section-toggle{
       width:100%; display:flex; align-items:center; justify-content:space-between;
-      background:transparent; color:var(--text); border:0; padding:4px 0; cursor:pointer;
+      background:transparent; color:var(--text); border:0; padding:6px 8px; cursor:pointer;
       -webkit-tap-highlight-color: transparent;
+      border-radius:12px;
     }
+    .section-toggle strong{font-size:1.25rem}
     .section-toggle .left{display:flex; align-items:center; gap:8px}
+    .section-toggle .right{display:flex; align-items:center; gap:8px}
     .section-toggle .badge{
       background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
-      padding:2px 8px; border-radius:999px; font-size:.85rem; color:var(--muted);
+      padding:2px 8px; border-radius:999px; font-size:.95rem; color:var(--muted);
     }
+    :root[data-theme="light"] .section-toggle .badge{background:#f8fafc;border-color:#e5e7eb;color:#475569}
+    :root[data-theme="dark"] .section-toggle .badge{background:#0f141a;border-color:#1f2937;color:#8b949e}
     .section-toggle .chev{transition: transform .2s ease}
     .card.collapsed .section-toggle .chev{transform:rotate(-90deg)}
 
-    .section-body{
-      overflow:hidden; transition:max-height .2s ease;
-    }
+    .section-toggle.drop-active{outline:2px dashed rgba(124,156,255,.5); outline-offset:4px}
+    .section-toggle.drop-over{outline-color: var(--accent)}
+
+    .section-body{ overflow:hidden; transition:max-height .2s ease; }
     .card.collapsed .section-body{max-height:0}
-    .card.expanded .section-body{max-height:1200px} /* big enough to reveal content */
+    .card.expanded .section-body{max-height:1200px}
 
     .tasks{list-style:none;margin:0;padding:0;min-height:8px}
     .droptarget.drop-active{outline:2px dashed rgba(124,156,255,.5);outline-offset:4px}
@@ -66,6 +109,8 @@
       touch-action: manipulation;
       -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
     }
+    :root[data-theme="light"] .task{background:#f8fafc}
+    :root[data-theme="dark"] .task{background:#0f141a}
     .task *{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     .task.dragging{opacity:.6}
 
@@ -85,12 +130,24 @@
       background:var(--danger); border:0; border-radius:8px; width:32px; height:32px;
       display:flex; align-items:center; justify-content:center; cursor:pointer;
       transition:filter .15s ease, transform .05s ease;
-      line-height:0; color:transparent; overflow:hidden; /* avoid stray white mark */
+      line-height:0; color:transparent; overflow:hidden;
       -webkit-tap-highlight-color: transparent;
     }
     .btn-delete:hover{filter:brightness(1.05)}
     .btn-delete:active{transform:scale(.98)}
     .btn-delete svg{width:18px;height:18px;fill:#fff; display:block}
+
+    /* Group delete button: same icon, transparent style (not red) */
+    .btn-group-delete{
+      appearance:none; -webkit-appearance:none;
+      background:transparent; border:1px solid rgba(255,255,255,.12);
+      width:32px; height:32px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      line-height:0; -webkit-tap-highlight-color: transparent;
+    }
+    .btn-group-delete svg{width:18px;height:18px;fill:var(--muted); display:block}
+    :root[data-theme="light"] .btn-group-delete{border-color:#e5e7eb}
+    :root[data-theme="dark"] .btn-group-delete{border-color:#1f2937}
 
     .add{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
     .add input[type="text"]{
@@ -98,14 +155,16 @@
       background:rgba(0,0,0,.06);color:var(--text);font-size:1rem;
       -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
     }
+    :root[data-theme="light"] .add input[type="text"]{background:#fff;border-color:#e5e7eb;color:#0f172a}
+    :root[data-theme="dark"] .add input[type="text"]{background:#0f141a;border-color:#1f2937;color:#e6edf3}
     .add input[type="text"]::placeholder{color:var(--muted)}
     .add button{
       background:linear-gradient(135deg, var(--accent), var(--accent-2));
       border:0;color:#fff;font-weight:700;padding:12px 16px;border-radius:12px;cursor:pointer
     }
 
-    @media (min-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} .card.future{grid-column:span 2} }
-    .task:focus-within{outline:1px solid rgba(124,156,255,.35);outline-offset:3px;border-radius:12px}
+    @media (min-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} .card.wide{grid-column:span 2} }
+    .task:focus-within{outline:1px solid var(--outline);outline-offset:3px;border-radius:12px}
 
     .drag-ghost{
       position:fixed; left:0; top:0; transform:translate(-9999px,-9999px);
@@ -119,7 +178,14 @@
   <div class="app">
     <header>
       <h1>Task Tracker</h1>
-      <span id="progressPill" aria-live="polite">0/0 done</span>
+      <div id="topbar">
+        <span id="progressPill" aria-live="polite">0/0 done</span>
+        <button id="themeBtn" type="button" title="Change theme" aria-label="Change theme">
+          <span id="themeIcon">🌙</span>
+          <span id="themeName">Midnight</span>
+        </button>
+        <button id="addGroupBtn" type="button" title="Add group" aria-label="Add group">＋ Group</button>
+      </div>
     </header>
 
     <main class="grid" aria-describedby="helper">
@@ -127,62 +193,28 @@
         Tap a task to edit. Long-press to start dragging on mobile. Drag to move between lists. Auto-scroll kicks in near the screen edges.
       </p>
 
-      <section class="card" id="card-today">
-        <button class="section-toggle" data-bucket="today" aria-expanded="false">
-          <span class="left">
-            <span class="chev">▾</span>
-            <strong>Today</strong>
-          </span>
-          <span class="badge" id="count-today">0/0</span>
-        </button>
-        <div class="section-body">
-          <ul class="tasks droptarget" id="list-today" data-bucket="today"></ul>
-          <div class="add">
-            <input type="text" id="add-today" placeholder="Add a task for today…" />
-            <button type="button" onclick="addTask('today')">Add</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="card" id="card-week">
-        <button class="section-toggle" data-bucket="week" aria-expanded="false">
-          <span class="left">
-            <span class="chev">▾</span>
-            <strong>This Week</strong>
-          </span>
-          <span class="badge" id="count-week">0/0</span>
-        </button>
-        <div class="section-body">
-          <ul class="tasks droptarget" id="list-week" data-bucket="week"></ul>
-          <div class="add">
-            <input type="text" id="add-week" placeholder="Add a task for this week…" />
-            <button type="button" onclick="addTask('week')">Add</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="card future" id="card-future">
-        <button class="section-toggle" data-bucket="future" aria-expanded="false">
-          <span class="left">
-            <span class="chev">▾</span>
-            <strong>Future</strong>
-          </span>
-          <span class="badge" id="count-future">0/0</span>
-        </button>
-        <div class="section-body">
-          <ul class="tasks droptarget" id="list-future" data-bucket="future"></ul>
-          <div class="add">
-            <input type="text" id="add-future" placeholder="Add a future task…" />
-            <button type="button" onclick="addTask('future')">Add</button>
-          </div>
-        </div>
-      </section>
+      <div id="sections"></div>
     </main>
   </div>
 
   <script>
-    const storageKey = 'task-tracker:v12';
+    const storageKey  = 'task-tracker:v13';
     const collapseKey = 'task-tracker:collapsed';
+    const themeKey    = 'task-tracker:theme';
+    const groupsKey   = 'task-tracker:groups';
+
+    const THEMES = [
+      { id:'midnight', label:'Midnight', icon:'🌙' },
+      { id:'light',    label:'Light',    icon:'🌤️' },
+      { id:'dark',     label:'Dark',     icon:'🌑' }
+    ];
+
+    const defaultGroups = [
+      { id:'today',  title:'Today' },
+      { id:'week',   title:'This Week' },
+      { id:'future', title:'Future' }
+    ];
+
     const initialData = {
       today: [
         { id: crypto.randomUUID(), title: 'Buy groceries', done: false },
@@ -201,29 +233,123 @@
       ]
     };
 
-    let state = JSON.parse(localStorage.getItem(storageKey)) || initialData;
+    let state     = JSON.parse(localStorage.getItem(storageKey))  || initialData;
     let collapsed = JSON.parse(localStorage.getItem(collapseKey)) || { today:true, week:true, future:true };
+    let theme     = localStorage.getItem(themeKey) || 'midnight';
+    let groups    = JSON.parse(localStorage.getItem(groupsKey))   || defaultGroups.slice();
 
-    function save(){
-      localStorage.setItem(storageKey, JSON.stringify(state));
-      updateProgress();
+    groups.forEach(g => { if (!state[g.id]) state[g.id] = []; if (collapsed[g.id] === undefined) collapsed[g.id] = true; });
+
+    function persistGroups(){ localStorage.setItem(groupsKey, JSON.stringify(groups)); }
+    function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); updateProgress(); }
+    function saveCollapsed(){ localStorage.setItem(collapseKey, JSON.stringify(collapsed)); }
+
+    function setTheme(id){
+      theme = id;
+      document.documentElement.setAttribute('data-theme', id);
+      const t = THEMES.find(x=>x.id===id) || THEMES[0];
+      document.getElementById('themeName').textContent = t.label;
+      document.getElementById('themeIcon').textContent = t.icon;
+      localStorage.setItem(themeKey, id);
     }
-    function saveCollapsed(){
-      localStorage.setItem(collapseKey, JSON.stringify(collapsed));
+    function cycleTheme(){
+      const idx = THEMES.findIndex(t=>t.id===theme);
+      const next = THEMES[(idx+1)%THEMES.length];
+      setTheme(next.id);
+    }
+
+    function slugify(name){
+      return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30) || 'group';
+    }
+    function uniqueId(base){
+      let id = base, n = 2;
+      while (groups.some(g=>g.id===id) || state[id]) { id = base + '-' + n++; }
+      return id;
+    }
+
+    function addGroup(){
+      const name = (prompt('New group name:') || '').trim();
+      if (!name) return;
+      const id = uniqueId(slugify(name));
+      groups.push({id, title:name});
+      state[id] = [];
+      collapsed[id] = true;
+      persistGroups(); save(); saveCollapsed();
+      render();
+    }
+
+    function removeGroup(id){
+      const grp = groups.find(g=>g.id===id);
+      if (!grp) return;
+      if (!confirm(`Are you sure you want to remove the group "${grp.title}"? This will also delete its tasks.`)) return;
+      // remove from groups array
+      groups = groups.filter(g=>g.id!==id);
+      // remove data and collapsed state
+      delete state[id];
+      delete collapsed[id];
+      persistGroups(); save(); saveCollapsed();
+      render();
+    }
+
+    function sectionTemplate(id, title){
+      return `
+      <section class="card" id="card-${id}">
+        <button class="section-toggle droptarget" data-bucket="${id}" aria-expanded="false">
+          <span class="left">
+            <span class="chev">▾</span>
+            <strong>${title}</strong>
+          </span>
+          <span class="right">
+            <span class="badge" id="count-${id}">0/0</span>
+            <button class="btn-group-delete" type="button" title="Remove group" aria-label="Remove group" data-remove="${id}">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7H4V5h4V4a1 1 0 0 1 1-1zm1 4H7v12h10V7h-3H10zm1 2h2v8h-2V9zm-4 0h2v8H7V9zm8 0h2v8h-2V9z"/>
+              </svg>
+            </button>
+          </span>
+        </button>
+        <div class="section-body">
+          <ul class="tasks droptarget" id="list-${id}" data-bucket="${id}"></ul>
+          <div class="add">
+            <input type="text" id="add-${id}" placeholder="Add a task…" />
+            <button type="button" data-add="${id}">Add</button>
+          </div>
+        </div>
+      </section>`;
     }
 
     function render(){
-      ['today','week','future'].forEach(bucket => {
-        const list = document.getElementById('list-' + bucket);
-        list.innerHTML = '';
-        state[bucket].forEach(task => list.appendChild(taskItem(task, bucket)));
-        updateSectionCount(bucket);
-        setSectionCollapsed(bucket, !!collapsed[bucket]);
+      const container = document.getElementById('sections');
+      container.innerHTML = groups.map(g => sectionTemplate(g.id, g.title)).join('');
+
+      groups.forEach(g => {
+        const list = document.getElementById('list-' + g.id);
+        (state[g.id]||[]).forEach(task => list.appendChild(taskItem(task, g.id)));
+        updateSectionCount(g.id);
+        setSectionCollapsed(g.id, !!collapsed[g.id]);
       });
+
+      // Wire header actions
+      container.querySelectorAll('[data-add]').forEach(btn=>{
+        btn.onclick = ()=> addTask(btn.getAttribute('data-add'));
+      });
+      container.querySelectorAll('.add input[type="text"]').forEach(inp=>{
+        inp.onkeydown = (e)=>{ if(e.key==='Enter'){ addTask(inp.id.replace('add-','')); } };
+      });
+      container.querySelectorAll('[data-remove]').forEach(btn=>{
+        btn.onclick = (e)=>{
+          e.stopPropagation(); // avoid toggling collapse
+          const id = btn.getAttribute('data-remove');
+          removeGroup(id);
+        };
+      });
+
       bindDropZones();
       updateProgress();
-      bindAddInputsEnter();
       bindToggles();
+      setTheme(theme);
+      document.getElementById('themeBtn').onclick = cycleTheme;
+      document.getElementById('addGroupBtn').onclick = addGroup;
     }
 
     function bindToggles(){
@@ -246,16 +372,10 @@
     }
 
     function updateSectionCount(bucket){
-      const total = state[bucket].length;
-      const done = state[bucket].filter(t=>t.done).length;
-      document.getElementById('count-'+bucket).textContent = `${done}/${total}`;
-    }
-
-    function bindAddInputsEnter(){
-      ['today','week','future'].forEach(bucket=>{
-        const inp = document.getElementById('add-' + bucket);
-        inp.onkeydown = (e) => { if (e.key === 'Enter') { addTask(bucket); } };
-      });
+      const total = (state[bucket]||[]).length;
+      const done = (state[bucket]||[]).filter(t=>t.done).length;
+      const el = document.getElementById('count-'+bucket);
+      if (el) el.textContent = `${done}/${total}`;
     }
 
     function createTitleDiv(task){
@@ -359,7 +479,6 @@
       del.addEventListener('click', () => { removeTask(task.id, bucket); updateSectionCount(bucket); });
 
       if (!isTouch) {
-        // Desktop native DnD
         li.addEventListener('dragstart', (e) => {
           const active = document.activeElement;
           if (active && active.classList && active.classList.contains('task-edit')) {
@@ -370,7 +489,7 @@
         });
         li.addEventListener('dragend', () => li.classList.remove('dragging'));
       } else {
-        setupDrag(li, task, bucket); // Mobile long-press custom DnD with auto-scroll
+        setupDrag(li, task, bucket);
       }
 
       li.appendChild(cb);
@@ -406,15 +525,9 @@
         if (!dragging) return;
         const vh = window.innerHeight;
         const y = lastPointer.y;
-
         let dy = 0;
-        if (y < EDGE) {
-          const f = (EDGE - y) / EDGE;
-          dy = -Math.ceil(f * MAX_SPEED);
-        } else if (y > vh - EDGE) {
-          const f = (y - (vh - EDGE)) / EDGE;
-          dy = Math.ceil(f * MAX_SPEED);
-        }
+        if (y < EDGE) { dy = -Math.ceil(((EDGE - y) / EDGE) * MAX_SPEED); }
+        else if (y > vh - EDGE) { dy = Math.ceil(((y - (vh - EDGE)) / EDGE) * MAX_SPEED); }
         if (dy !== 0) window.scrollBy(0, dy);
         rafId = requestAnimationFrame(autoScrollLoop);
       };
@@ -467,7 +580,7 @@
           if (idx !== -1) {
             const [moved] = fromArr.splice(idx, 1);
             const ul = document.getElementById('list-' + dropBucket);
-            const insertAt = computeDropIndex(ul, lastPointer.y);
+            const insertAt = (currentZone.tagName === 'UL') ? computeDropIndex(ul, lastPointer.y) : ul.children.length;
             state[dropBucket].splice(insertAt, 0, moved);
             save(); render();
           }
@@ -478,7 +591,6 @@
       const startDrag = (x, y) => {
         dragging = true;
         li.dataset.dragging = 'true';
-
         ghost = document.createElement('div');
         ghost.className = 'drag-ghost';
         ghost.style.width = li.getBoundingClientRect().width + 'px';
@@ -504,7 +616,7 @@
 
       const onDown = (e) => {
         const target = e.target;
-        if (target.closest('input,button,.btn-delete,.task-edit')) return;
+        if (target.closest('input,button,.btn-delete,.task-edit,.btn-group-delete')) return;
 
         const p = getPoint(e);
         startX = p.x; startY = p.y;
@@ -543,24 +655,28 @@
 
     function bindDropZones(){
       document.querySelectorAll('.droptarget').forEach(zone => {
-        zone.addEventListener('dragover', e => {
-          e.preventDefault(); zone.classList.add('drop-active');
-        });
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drop-active','drop-over'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('drop-active','drop-over'));
         zone.addEventListener('drop', e => {
           e.preventDefault(); zone.classList.remove('drop-active','drop-over');
           const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
           if (!data.id || !data.from) return;
           const from = data.from; const to = zone.dataset.bucket;
-          const idx = state[from].findIndex(t => t.id === data.id);
+          const idx = (state[from]||[]).findIndex(t => t.id === data.id);
           if (idx === -1) return;
           const [task] = state[from].splice(idx, 1);
-          const pointerY = e.clientY;
-          const items = Array.from(zone.querySelectorAll('li.task'));
-          let insertAt = items.length;
-          for (let i=0;i<items.length;i++){
-            const r = items[i].getBoundingClientRect();
-            if (pointerY < r.top + r.height/2) { insertAt = i; break; }
+          let insertAt;
+          if (zone.tagName === 'UL') {
+            const pointerY = e.clientY;
+            const items = Array.from(zone.querySelectorAll('li.task'));
+            insertAt = items.length;
+            for (let i=0;i<items.length;i++){
+              const r = items[i].getBoundingClientRect();
+              if (pointerY < r.top + r.height/2) { insertAt = i; break; }
+            }
+          } else {
+            const ul = document.getElementById('list-' + to);
+            insertAt = ul.children.length;
           }
           state[to].splice(insertAt, 0, task);
           save(); render();
@@ -580,19 +696,19 @@
     }
 
     function removeTask(id, bucket){
-      state[bucket] = state[bucket].filter(t => t.id !== id);
+      state[bucket] = (state[bucket]||[]).filter(t => t.id !== id);
       save(); render();
     }
 
     function updateProgress(){
-      const all = [...state.today, ...state.week, ...state.future];
+      const all = groups.flatMap(g => state[g.id] || []);
       const done = all.filter(t => t.done).length;
       document.getElementById('progressPill').textContent = `${done}/${all.length} done`;
-      // update section badges too (in case called directly)
-      ['today','week','future'].forEach(updateSectionCount);
+      groups.forEach(g => updateSectionCount(g.id));
     }
 
-    // Initial render and ensure collapsed UI reflects saved state
+    // boot
+    document.documentElement.setAttribute('data-theme', theme);
     render();
   </script>
 </body>

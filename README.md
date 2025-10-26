@@ -1,24 +1,25 @@
-# Task Tracker (Mobile-first)
+# Safari Home Screen Icon Setup
 
-A simple, mobile-friendly task tracker with three sections: **Today**, **This Week**, and **Future**.
-Drag-and-drop tasks between sections, mark them done with a checkbox, and remove with a red trash bin button.
+This package updates your app so **iOS Safari uses `icons/logo.png`** as the Home Screen icon.
 
-## Quick start (GitHub Pages)
+## What’s included
+- `index.html`: adds the right `<link rel="apple-touch-icon">` and PWA meta tags.
+- `manifest.webmanifest`: points to `icons/logo.png` for installable icon (Chrome/Android and iOS 17+).
+- `icons/` (empty placeholder): put your **existing** `icons/logo.png` here.
 
-1. Create a new repository on GitHub, e.g. `task-tracker`.
-2. Upload these files to the repository root:
-   - `index.html`
-   - `icons/trashbin.svg`
-3. Commit and push.
-4. In **Settings → Pages**, set **Source** to **Deploy from a branch** and choose the **main** branch and `/ (root)` folder.
-5. Save. After it builds, your site will be live at the GitHub Pages URL for the repo.
+## Requirements for the icon
+- Recommended: **180×180 PNG** (works great on iPhone). Larger (e.g. 1024×1024) is okay too; iOS downsizes.
+- Avoid transparency for best results. Keep safe margins (no content too close to edges).
 
-> Tip: If you use a `docs/` folder instead of the repo root, move all files into `docs/` and select that folder in Pages settings.
+## How to use
+1. Copy your current `icons/logo.png` into this folder at `icons/logo.png` (replace if prompted).
+2. Open `index.html` (or deploy). On iPhone:
+   - Safari → Share → **Add to Home Screen**.
+   - The shortcut should show your icon.
+3. If the old icon is cached, try:
+   - Rename the file once (e.g., `logo-v2.png`) and update both `index.html` and `manifest.webmanifest` to match.
+   - Or clear Safari Website Data: *Settings → Safari → Advanced → Website Data → Remove All Website Data*.
 
-## Local preview
-
-Just open `index.html` in your browser. No build tools required.
-
----
-
-Generated on 2025-10-23.
+## Notes
+- We set `apple-mobile-web-app-capable=yes` so it runs full-screen as a web app.
+- `theme-color` and status bar are tuned for your dark theme.
